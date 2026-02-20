@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AM BK UM 2026</title>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel untuk compile JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        html { scroll-behavior: smooth; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        .pie-chart {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .pie-center {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px; height: 100px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center; justify-content: center;
+            font-weight: bold;
+            font-size: 0.75rem;
+            color: #1e293b;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    <div id="root"></div>
+
+    <!-- Perhatikan tipe datanya menjadi "module" agar mendukung Firebase -->
+    <script type="text/babel" data-type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const { useState, useEffect, useMemo } = React;
+
+        // =====================================================================
+        // KONFIGURASI DATABASE CLOUD (FIREBASE)
+        // =====================================================================
+        // Jika Anda ingin membagikan web ini ke siswa secara nyata, Anda HARUS 
+        // membuat project gratis di console.firebase.google.com, lalu masukkan 
+        // kode config-nya ke dalam variabel "myOwnFirebaseConfig" di bawah ini:
+        
+        const myOwnFirebaseConfig = null; /* Ganti 'null' dengan config Anda, contoh:
+        {
+            apiKey: "AIzaSyD...",
+            authDomain: "nama-project.firebaseapp.com",
+            projectId: "nama-project",
+            storageBucket: "nama-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcde"
+        }; */
+
+        // Script ini akan menggunakan database preview ini jika config pribadi belum diatur
+        const envFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const finalConfig = myOwnFirebaseConfig || envFirebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'am-bk-um-2026';
+
+        let app, auth, db;
+        if (finalConfig) {
+            app = initializeApp(finalConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        }
+
+        // --- IKON (Inline SVG) ---
+        const Icon = ({ path, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+
+        const Icons = {
+            BookOpen: (p) => <Icon {...p} path={<><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>} />,
+            Users: (p) => <Icon {...p} path={<><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>} />,
+            User: (p) => <Icon {...p} path={<><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>} />,
+            Briefcase: (p) => <Icon {...p} path={<><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>} />,
+            LogOut: (p) => <Icon {...p} path={<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>} />,
+            CheckCircle: (p) => <Icon {...p} path={<><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></>} />,
+            Lock: (p) => <Icon {...p} path={<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>} />,
+            Download: (p) => <Icon {...p} path={<><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>} />,
+            ChevronRight: (p) => <Icon {...p} path={<polyline points="9 18 15 12 9 6"/>} />,
+            ChevronLeft: (p) => <Icon {...p} path={<polyline points="15 18 9 12 15 6"/>} />,
+            Search: (p) => <Icon {...p} path={<><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>} />,
+            Activity: (p) => <Icon {...p} path={<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>} />,
+            TrendingUp: (p) => <Icon {...p} path={<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>} />,
+            Anchor: (p) => <Icon {...p} path={<><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></>} />,
+            Shield: (p) => <Icon {...p} path={<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>} />,
+            MessageSquare: (p) => <Icon {...p} path={<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>} />,
+            PieChart: (p) => <Icon {...p} path={<><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></>} />,
+            X: (p) => <Icon {...p} path={<><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>} />,
+            FileText: (p) => <Icon {...p} path={<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>} />,
+            HeartHandshake: (p) => <Icon {...p} path={<><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08v0c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.92 0l.29.29a2.82 2.82 0 0 1 0 3.92l-3.79 3.79a2.82 2.82 0 0 1-3.92 0l-1.47-1.47a2.82 2.82 0 0 0-3.92 0l-.29.29a2.82 2.82 0 0 0 0 3.92l3.79 3.79"/></>} />,
+            Menu: (p) => <Icon {...p} path={<><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="18" x2="20" y2="18"/></>} />,
+            Layout: (p) => <Icon {...p} path={<><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>} />,
+            CloudOff: (p) => <Icon {...p} path={<><path d="M22.61 16.95A5 5 0 0 0 18 10h-1.26a8 8 0 0 0-7.05-6M5 5a8 8 0 0 0 4 15h9a5 5 0 0 0 1.7-.3"/><line x1="1" y1="1" x2="23" y2="23"/></>} />
+        };
+
+        // --- DATA PERNYATAAN MASALAH (20 Butir) ---
+        const questions = {
+            pribadi: [
+                { id: 'P1', text: 'Saya tetap menjalankan ibadah tepat waktu meskipun jadwal sedang sangat padat.' },
+                { id: 'P2', text: 'Saya mampu mengatur waktu agar kewajiban ibadah tetap terlaksana di tengah jadwal yang padat..' },
+                { id: 'P3', text: 'Saya mampu tetap tenang saat menghadapi teguran dan hukuman yang disiplin.' },
+                { id: 'P4', text: 'Saya memiliki cara positif untuk mengatasi rasa rindu dengan rumah (homesick)..' },
+                { id: 'P5', text: 'Saya memiliki cara menenangkan diri saat merasa jenuh atau stress dengan rutinitas harian.' }
+            ],
+            sosial: [
+                { id: 'S1', text: 'Saya mampu menyesuaikan diri dengan budaya yang ada di sekolah.' },
+                { id: 'S2', text: 'Saya mampu berbaur dengan teman-teman yang memiliki latar belakang daerah yang berbeda.' },
+                { id: 'S3', text: 'Saya selalu mendahulukan kepentingan kelompok di atas kepentingan pribadi dalam kegiatan kelompok/korps.' },
+                { id: 'S4', text: 'Saya memahami tata krama dan etika berbicara yang berlaku di lingkungan semi-militer ini.' },
+                { id: 'S5', text: 'Saya merasa ragu atau takut untuk menyampaikan pendapat secara terbuka kepada pihak sekolah atau guru.' }
+            ],
+            belajar: [
+                { id: 'B1', text: 'Saya mampu menjaga konsentrasi saat mengikuti pelajaran setelah kegiatan fisik.' },
+                { id: 'B2', text: 'Saya membutuhkan tips menjaga stamina tubuh agar tetap prima saat mengikuti pelajaran di kelas.' },
+                { id: 'B3', text: 'Saya bisa membagi waktu dengan baik antara jadwal latihan, makan, dan belajar mandiri.' },
+                { id: 'B4', text: 'Saya menunda tugas karena sulit mengatur waktu yang padat.' },
+                { id: 'B5', text: 'Saya membutuhkan pelatihan tentang teknik manajemen waktu yang efektif untuk siswa asrama.' }
+            ],
+            karir: [
+                { id: 'K1', text: 'Saya sudah memiliki gambaran yang jelas mengenai perguruan tinggi atau akademi yang akan saya tuju.' },
+                { id: 'K2', text: 'Saya mempersiapkan diri sesuai standar akademik yang dipersyaratkan.' },
+                { id: 'K3', text: 'Saya memiliki alternatif rencana pendidikan atau karir selain sekolah kedinasan/ Akmil/ Akpol/ dll.' },
+                { id: 'K4', text: 'Saya merasa masa depan saya akan terhenti jika tidak lolos seleksi utama.' },
+                { id: 'K5', text: 'Saya membutuhkan layanan bimbingan atau konseling tentang menyikapi kegagalan dan mencari peluang baru.' }
+            ]
+        };
+
+        // --- COMPONENTS ---
+        
+        function App() {
+            const [currentUser, setCurrentUser] = useState(null); 
+            const [submissions, setSubmissions] = useState([]); 
+            const [studentView, setStudentView] = useState('home'); 
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+            const [authUser, setAuthUser] = useState(null);
+            const [isOffline, setIsOffline] = useState(!finalConfig);
+
+            // 1. Inisialisasi Firebase Auth (Login Anonim ke sistem server)
+            useEffect(() => {
+                if (!auth) return;
+                let isMounted = true;
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) {
+                        console.error("Auth error:", error);
+                    }
+                };
+                initAuth();
+
+                const unsubscribe = onAuthStateChanged(auth, (user) => {
+                    if (isMounted) setAuthUser(user);
+                });
+                return () => {
+                    isMounted = false;
+                    unsubscribe();
+                };
+            }, []);
+
+            // 2. Fetching Data secara Real-Time dari Cloud Firestore (TIDAK LAGI MEMAKAI LOCALSTORAGE)
+            useEffect(() => {
+                if (!authUser || !db) return;
+
+                const submissionsRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                
+                const unsubscribe = onSnapshot(submissionsRef, (snapshot) => {
+                    const data = [];
+                    snapshot.forEach(doc => {
+                        data.push({ id: doc.id, ...doc.data() });
+                    });
+                    
+                    // Urutkan data berdasarkan waktu terbaru
+                    data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    setSubmissions(data);
+                }, (error) => {
+                    console.error("Gagal memuat data dari server:", error);
+                });
+
+                return () => unsubscribe();
+            }, [authUser]);
+
+            const handleLogin = (user) => {
+                setCurrentUser(user);
+                setStudentView('home');
+            };
+
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setIsMobileMenuOpen(false);
+            };
+
+            const handleSubmit = async (newData) => {
+                // Peringatan jika web dibuka secara offline (tanpa server)
+                if (isOffline || !db || !authUser) {
+                    alert("GAGAL: Web ini tidak terhubung ke Database Cloud. Silakan tambahkan 'myOwnFirebaseConfig' di dalam kode untuk menyimpan data secara permanen.");
+                    return;
+                }
+
+                const newSubmission = {
+                    name: currentUser.name, 
+                    classCode: currentUser.classCode, 
+                    timestamp: new Date().toISOString(), 
+                    ...newData
+                };
+                
+                // Menyimpan ke Cloud Firestore (Server Permanen)
+                try {
+                    const submissionsRef = collection(db, 'artifacts', appId, 'public', 'data', 'submissions');
+                    await addDoc(submissionsRef, newSubmission);
+                    alert("Berhasil! Laporan telah terkirim dan tersimpan secara permanen di server Guru BK.");
+                    setStudentView('home');
+                } catch (error) {
+                    console.error("Gagal simpan ke server:", error);
+                    alert("Terjadi kesalahan jaringan saat mengirim data. Pastikan internet stabil.");
+                }
+            };
+
+            const navigateTo = (view) => {
+                setStudentView(view);
+                setIsMobileMenuOpen(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+                    <header className="bg-slate-900 text-white shadow-lg sticky top-0 z-50 border-b-4 border-amber-400">
+                        <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center relative">
+                            
+                            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => currentUser?.role === 'student' && navigateTo('home')}>
+                                <div className="bg-white/10 p-2 rounded border border-amber-400/30">
+                                    <Icons.Anchor className="h-6 w-6 text-amber-400" />
+                                </div>
+                                <div>
+                                    <h1 className="text-lg font-bold tracking-widest uppercase text-amber-400 leading-tight flex items-center">
+                                        AM BK UM 2026 
+                                    </h1>
+                                    <p className="text-xs text-slate-300 tracking-wide hidden sm:block">SMAN Taruna Nala Jawa Timur</p>
+                                </div>
+                            </div>
+
+                            {/* Kanan: Hamburger Menu (Khusus Siswa) atau Tombol Keluar (Guru) */}
+                            <div className="flex items-center space-x-4">
+                                {isOffline && (
+                                    <span className="hidden md:flex items-center bg-red-600/20 text-red-400 text-xs px-2 py-1 rounded font-bold uppercase tracking-wider border border-red-500/50">
+                                        <Icons.CloudOff className="w-4 h-4 mr-1"/> Offline
+                                    </span>
+                                )}
+
+                                {currentUser && currentUser.role === 'student' ? (
+                                    <button 
+                                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                                        className="p-2 bg-slate-800 hover:bg-slate-700 rounded transition border border-slate-700 text-amber-400 flex items-center"
+                                    >
+                                        <span className="text-xs font-bold uppercase tracking-wider mr-2 hidden sm:block">Menu Utama</span>
+                                        {isMobileMenuOpen ? <Icons.X className="h-6 w-6" /> : <Icons.Menu className="h-6 w-6" />}
+                                    </button>
+                                ) : currentUser && currentUser.role === 'teacher' ? (
+                                    <button onClick={handleLogout} className="flex items-center space-x-2 bg-red-800/80 hover:bg-red-700 px-4 py-1.5 rounded text-sm transition border border-red-600 font-medium tracking-wide uppercase text-xs">
+                                        <Icons.LogOut className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Keluar</span>
+                                    </button>
+                                ) : null}
+                            </div>
+                        </div>
+
+                        {/* Dropdown Menu untuk Siswa */}
+                        {currentUser && currentUser.role === 'student' && isMobileMenuOpen && (
+                            <div className="absolute top-full left-0 w-full bg-slate-900 border-b border-slate-800 shadow-2xl animate-fade-in z-40">
+                                <nav className="max-w-6xl mx-auto px-4 py-4 flex flex-col space-y-2">
+                                    <button onClick={() => navigateTo('home')} className={`text-left px-4 py-3 rounded uppercase text-sm font-bold tracking-widest transition ${studentView === 'home' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                                        <Icons.Layout className="inline w-5 h-5 mr-3 mb-1" /> Beranda Utama
+                                    </button>
+                                    <button onClick={() => navigateTo('materi')} className={`text-left px-4 py-3 rounded uppercase text-sm font-bold tracking-widest transition ${studentView === 'materi' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                                        <Icons.BookOpen className="inline w-5 h-5 mr-3 mb-1" /> Materi BK
+                                    </button>
+                                    <button onClick={() => navigateTo('assessment')} className={`text-left px-4 py-3 rounded uppercase text-sm font-bold tracking-widest transition ${studentView === 'assessment' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                                        <Icons.FileText className="inline w-5 h-5 mr-3 mb-1" /> Asesmen Kebutuhan
+                                    </button>
+                                    <button onClick={() => navigateTo('curhat')} className={`text-left px-4 py-3 rounded uppercase text-sm font-bold tracking-widest transition ${studentView === 'curhat' ? 'bg-amber-500 text-slate-900' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}>
+                                        <Icons.HeartHandshake className="inline w-5 h-5 mr-3 mb-1" /> Ruang Curhat
+                                    </button>
+                                    <div className="border-t border-slate-700 my-2"></div>
+                                    <button onClick={handleLogout} className="text-left px-4 py-3 rounded uppercase text-sm font-bold tracking-widest text-red-400 hover:bg-red-900/50 transition">
+                                        <Icons.LogOut className="inline w-5 h-5 mr-3 mb-1" /> Keluar
+                                    </button>
+                                </nav>
+                            </div>
+                        )}
+                    </header>
+
+                    <main className="max-w-6xl mx-auto px-4 py-8 relative">
+                        {isOffline && (
+                            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded mb-6 text-sm flex items-start">
+                                <Icons.CloudOff className="w-6 h-6 mr-3 shrink-0" />
+                                <div>
+                                    <p className="font-bold uppercase tracking-wider mb-1">Peringatan Mode Offline</p>
+                                    <p>File ini berjalan secara lokal dan belum dihubungkan ke server database. Anda <b>tidak bisa mengirim dan menyimpan data</b>. Jika Anda ingin mempublikasikan web ini ke siswa, silakan buat project <i>Firebase</i> gratis dan masukkan konfigurasi <code>myOwnFirebaseConfig</code> di dalam kode (baris ke-95).</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {!currentUser ? (
+                            <LoginPage onLogin={handleLogin} />
+                        ) : currentUser.role === 'student' ? (
+                            <StudentPortal 
+                                user={currentUser} 
+                                onSubmit={handleSubmit} 
+                                view={studentView} 
+                                setView={navigateTo} 
+                            />
+                        ) : (
+                            <TeacherDashboard submissions={submissions} />
+                        )}
+                    </main>
+
+                    <footer className="text-center py-8 text-slate-500 text-xs uppercase tracking-widest">
+                        <div className="w-16 h-1 bg-amber-400 mx-auto mb-4"></div>
+                        <p>&copy; {new Date().getFullYear()} Bimbingan Konseling - Apta Nirwasita Adibrata</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        // --- HALAMAN LOGIN ---
+        function LoginPage({ onLogin }) {
+            const [activeTab, setActiveTab] = useState('student'); 
+            const [studentName, setStudentName] = useState('');
+            const [studentClass, setStudentClass] = useState('');
+            const [teacherPass, setTeacherPass] = useState('');
+            const [error, setError] = useState('');
+
+            const handleStudentLogin = (e) => {
+                e.preventDefault();
+                if (!studentName || !studentClass) {
+                    setError('Mohon lengkapi Identitas Taruna!');
+                    return;
+                }
+                onLogin({ role: 'student', name: studentName, classCode: studentClass });
+            };
+
+            const handleTeacherLogin = (e) => {
+                e.preventDefault();
+                if (teacherPass === '123321') {
+                    onLogin({ role: 'teacher', name: 'Pamong BK' });
+                } else {
+                    setError('Kode otorisasi salah.');
+                }
+            };
+
+            return (
+                <div className="max-w-4xl mx-auto animate-fade-in relative shadow-2xl rounded-lg overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+                    <div className="md:w-1/2 relative bg-slate-900 flex flex-col justify-center items-center text-white p-10 text-center overflow-hidden">
+                        <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: "url('https://sekolah.link/wp-content/uploads/2022/06/smp-neger-30-malang-1536x877.png')", transform: "scale(1.2)", backgroundPosition: "center bottom" }}></div>
+                        <div className="absolute inset-0 bg-slate-900/60 z-10 mix-blend-multiply"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent z-10"></div>
+                        
+                        <div className="relative z-20">
+                            <div className="bg-slate-900/40 p-4 rounded-full inline-block backdrop-blur-sm mb-6 border border-amber-400/30">
+                                <Icons.Anchor className="h-16 w-16 text-amber-400 mx-auto" />
+                            </div>
+                            <h2 className="text-3xl font-bold uppercase tracking-widest mb-2 text-amber-400 drop-shadow-lg">SMAN Taruna Nala</h2>
+                            <p className="text-sm font-light tracking-wide text-slate-200 mb-8 border-b border-amber-400/50 inline-block pb-1">Jawa Timur</p>
+                            <p className="mt-8 text-sm italic opacity-90 max-w-xs mx-auto text-slate-300">"Assessment Center & Layanan Konseling Taruna"</p>
+                        </div>
+                    </div>
+                    <div className="md:w-1/2 bg-white p-8 md:p-12 relative z-20">
+                        <div className="flex mb-8 border-b-2 border-slate-100">
+                            <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider ${activeTab === 'student' ? 'text-slate-900 border-b-4 border-amber-400' : 'text-slate-400'}`} onClick={() => setActiveTab('student')}>Taruna</button>
+                            <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider ${activeTab === 'teacher' ? 'text-slate-900 border-b-4 border-amber-400' : 'text-slate-400'}`} onClick={() => setActiveTab('teacher')}>Pamong</button>
+                        </div>
+                        {error && <div className="mb-6 p-3 bg-red-50 border-l-4 border-red-600 text-red-700 text-sm font-bold">{error}</div>}
+                        {activeTab === 'student' ? (
+                            <form onSubmit={handleStudentLogin} className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nama Lengkap</label>
+                                    <input type="text" className="w-full px-4 py-3 border-2 border-slate-200 rounded-md focus:border-slate-800 outline-none" placeholder="Nama Taruna" value={studentName} onChange={(e) => setStudentName(e.target.value)}/>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Kelas / Angkatan</label>
+                                    <select className="w-full px-4 py-3 border-2 border-slate-200 rounded-md focus:border-slate-800 outline-none bg-white" value={studentClass} onChange={(e) => setStudentClass(e.target.value)}>
+                                        <option value="">Pilih Kelas...</option>
+                                        <option value="X1">Kelas X1</option>
+                                        <option value="X2">Kelas X2</option>
+                                        <option value="X3">Kelas X3</option>
+                                        <option value="X4">Kelas X4</option>
+                                        <option value="X5">Kelas X5</option>
+                                        <option value="X6">Kelas X6</option>
+                                        <option value="X7">Kelas X7</option>
+                                        <option value="X8">Kelas X8</option>
+                                        <option value="X9">Kelas X9</option>
+                                        <option value="X10">Kelas X10</option>
+                                        <option value="XI 1">Kelas XI 1</option>
+                                        <option value="XI 2">Kelas XI 2</option>
+                                        <option value="XI 3">Kelas XI 3</option>
+                                        <option value="XI 4">Kelas XI 4</option>
+                                        <option value="XI 5">Kelas XI 5</option>
+                                        <option value="XI 6">Kelas XI 6</option>
+                                        <option value="XI">Kelas XI 7</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded uppercase tracking-widest hover:bg-slate-800 transition">Masuk</button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleTeacherLogin} className="space-y-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">PIN Otorisasi</label>
+                                    <input type="password" className="w-full px-4 py-3 border-2 border-slate-200 rounded-md focus:border-slate-800 outline-none tracking-widest" placeholder="••••••" value={teacherPass} onChange={(e) => setTeacherPass(e.target.value)}/>
+                                </div>
+                                <button type="submit" className="w-full bg-amber-500 text-slate-900 font-bold py-4 rounded uppercase tracking-widest hover:bg-amber-400 transition">Akses Dashboard</button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- PORTAL SISWA (LANDING PAGE STYLE) ---
+        function StudentPortal({ user, onSubmit, view, setView }) {
+            if (view === 'home') {
+                return (
+                    <div className="animate-fade-in">
+                        <div className="bg-slate-900 rounded-2xl p-10 md:p-16 text-center text-white mb-12 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-400 to-amber-600"></div>
+                            <Icons.Shield className="h-16 w-16 text-amber-400 mx-auto mb-6 opacity-80" />
+                            <h2 className="text-3xl md:text-5xl font-bold uppercase tracking-wider mb-4">Selamat Datang, Taruna {user.name}</h2>
+                            <p className="text-slate-300 max-w-2xl mx-auto text-lg leading-relaxed mb-8">
+                                Layanan Bimbingan dan Konseling ini hadir untuk mendukung perkembangan pribadimu, sosial, prestasi belajar, dan perencanaan karirmu ke depan.
+                            </p>
+                            <button onClick={() => { document.getElementById('layanan').scrollIntoView({ behavior: 'smooth' }); }} className="bg-amber-500 text-slate-900 px-8 py-3 rounded-full font-bold uppercase tracking-widest hover:bg-amber-400 transition shadow-lg">
+                                Jelajahi Layanan
+                            </button>
+                        </div>
+
+                        <div id="layanan" className="pt-8 mb-16">
+                            <div className="text-center mb-10">
+                                <h3 className="text-2xl font-bold text-slate-900 uppercase tracking-widest mb-2">Layanan Utama</h3>
+                                <div className="w-16 h-1 bg-amber-400 mx-auto"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                                <div onClick={() => setView('materi')} className="bg-white p-8 rounded-xl shadow-lg border-t-8 border-emerald-500 hover:shadow-2xl transition cursor-pointer group transform hover:-translate-y-2 flex flex-col h-full">
+                                    <div className="p-4 bg-emerald-50 rounded-full text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition w-max mb-6">
+                                        <Icons.BookOpen className="h-8 w-8" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wider mb-3">Materi BK</h3>
+                                    <p className="text-slate-500 text-sm leading-relaxed flex-grow">Akses artikel dan panduan pembinaan mental, manajemen waktu, serta tips sukses berkarir di kedinasan.</p>
+                                    <div className="mt-6 flex items-center text-emerald-600 font-bold text-sm uppercase tracking-wider">
+                                        Baca Sekarang <Icons.ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </div>
+                                <div onClick={() => setView('assessment')} className="bg-white p-8 rounded-xl shadow-lg border-t-8 border-amber-400 hover:shadow-2xl transition cursor-pointer group transform hover:-translate-y-2 flex flex-col h-full">
+                                    <div className="p-4 bg-amber-50 rounded-full text-amber-600 group-hover:bg-amber-400 group-hover:text-white transition w-max mb-6">
+                                        <Icons.FileText className="h-8 w-8" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wider mb-3">Asesmen Kebutuhan</h3>
+                                    <p className="text-slate-500 text-sm leading-relaxed flex-grow">Isi angket untuk memetakan kondisimu saat ini. Hasil asesmen akan membantu Pamong BK memberikan bimbingan yang tepat.</p>
+                                    <div className="mt-6 flex items-center text-amber-600 font-bold text-sm uppercase tracking-wider">
+                                        Mulai Asesmen <Icons.ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </div>
+                                <div onClick={() => setView('curhat')} className="bg-white p-8 rounded-xl shadow-lg border-t-8 border-indigo-600 hover:shadow-2xl transition cursor-pointer group transform hover:-translate-y-2 flex flex-col h-full">
+                                    <div className="p-4 bg-indigo-50 rounded-full text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition w-max mb-6">
+                                        <Icons.HeartHandshake className="h-8 w-8" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-900 uppercase tracking-wider mb-3">Ruang Konseling</h3>
+                                    <p className="text-slate-500 text-sm leading-relaxed flex-grow">Layanan privat bagi Taruna untuk bercerita atau berkonsultasi mengenai masalah pribadi yang sedang dihadapi secara aman.</p>
+                                    <div className="mt-6 flex items-center text-indigo-600 font-bold text-sm uppercase tracking-wider">
+                                        Buka Ruang <Icons.ChevronRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-slate-200 rounded-xl p-10 text-center mb-10">
+                            <h3 className="text-xl font-bold text-slate-800 uppercase tracking-widest mb-4">Informasi Penting</h3>
+                            <p className="text-slate-600 max-w-3xl mx-auto mb-6">"Integritas dan Kedisiplinan adalah kunci kesuksesan seorang Taruna. Jangan ragu untuk menghubungi layanan Bimbingan dan Konseling jika Anda mengalami kendala selama menempuh pendidikan."</p>
+                            <p className="text-sm font-bold text-slate-500">- Tim BK SMAN Taruna Nala -</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (view === 'assessment') {
+                return <LikertAssessment user={user} onBack={() => setView('home')} onSubmit={(data) => { onSubmit(data); }} />;
+            }
+            if (view === 'curhat') {
+                return <CurhatBox user={user} onBack={() => setView('home')} onSubmit={(data) => { onSubmit(data); }} />;
+            }
+            if (view === 'materi') {
+                return <MateriBK onBack={() => setView('home')} />;
+            }
+        }
+
+        // --- MATERI BK ---
+        function MateriBK({ onBack }) {
+            return (
+                <div className="max-w-4xl mx-auto animate-fade-in pb-12">
+                    <div className="flex items-center mb-8 border-b-2 border-slate-200 pb-4">
+                        <button onClick={onBack} className="mr-4 p-2 bg-slate-200 hover:bg-slate-300 rounded-full transition">
+                            <Icons.ChevronLeft className="w-6 h-6 text-slate-700" />
+                        </button>
+                        <div>
+                            <h2 className="text-3xl font-bold text-slate-900 uppercase tracking-widest">Materi Bimbingan</h2>
+                            <p className="text-slate-500">Artikel & Panduan Pengembangan Diri Taruna</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-10">
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100 flex flex-col md:flex-row">
+                            <div className="md:w-1/3 bg-slate-200 relative">
+                                <img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&q=80&w=800" alt="Belajar" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="p-8 md:w-2/3">
+                                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded uppercase tracking-wider mb-3 inline-block">Bidang Belajar</span>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-3">Strategi Manajemen Waktu di Asrama</h3>
+                                <p className="text-slate-600 mb-4 leading-relaxed text-sm text-justify">Sebagai seorang Taruna, kegiatan akademik dan pembinaan (binsuh) sangat padat. Kunci utamanya adalah membuat skala prioritas. Kerjakan tugas yang memiliki tenggat waktu terdekat dan biasakan untuk tidak menunda pekerjaan sekecil apapun. Gunakan metode Pomodoro saat belajar mandiri di malam hari agar tidak mudah kelelahan.</p>
+                                <button className="text-blue-600 font-bold text-sm uppercase tracking-wider flex items-center hover:text-blue-800 transition">Baca Selengkapnya <Icons.ChevronRight className="w-4 h-4 ml-1" /></button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100 flex flex-col md:flex-row">
+                            <div className="md:w-1/3 bg-slate-200 relative md:order-last">
+                                <img src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=800" alt="Sosial" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="p-8 md:w-2/3">
+                                <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded uppercase tracking-wider mb-3 inline-block">Bidang Sosial</span>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-3">Membangun Solidaritas Korps yang Sehat</h3>
+                                <p className="text-slate-600 mb-4 leading-relaxed text-sm text-justify">Jiwa korsa adalah kebanggaan Taruna, namun harus ditempatkan pada konteks yang positif. Hindari *peer pressure* yang mengajak pada pelanggaran aturan. Jika terjadi konflik dengan rekan satu leton, selesaikan melalui jalur komunikasi terbuka atau libatkan Pamong Pengasuh sebagai mediator yang objektif.</p>
+                                <button className="text-emerald-600 font-bold text-sm uppercase tracking-wider flex items-center hover:text-emerald-800 transition">Baca Selengkapnya <Icons.ChevronRight className="w-4 h-4 ml-1" /></button>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-100 flex flex-col md:flex-row">
+                            <div className="md:w-1/3 bg-slate-200 relative">
+                                <img src="https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80&w=800" alt="Karir" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="p-8 md:w-2/3">
+                                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded uppercase tracking-wider mb-3 inline-block">Bidang Karir</span>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-3">Persiapan Menembus Akademi TNI/Polri & Kedinasan</h3>
+                                <p className="text-slate-600 mb-4 leading-relaxed text-sm text-justify">Persiapan tidak bisa dilakukan dalam waktu singkat (SKS). Mulailah dari Kelas X untuk membina fisik, menjaga kesehatan mata dan postur, serta konsisten mempertahankan nilai akademik (khususnya Matematika, Bahasa Inggris). Kenali minat matra (Darat, Laut, Udara, Polisi) sejak dini agar fokus berlatih.</p>
+                                <button className="text-amber-600 font-bold text-sm uppercase tracking-wider flex items-center hover:text-amber-800 transition">Baca Selengkapnya <Icons.ChevronRight className="w-4 h-4 ml-1" /></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- ASESMEN ---
+        function LikertAssessment({ user, onBack, onSubmit }) {
+            const [answers, setAnswers] = useState({});
+            const [materiDiharapkan, setMateriDiharapkan] = useState('');
+            const [harapanSekolah, setHarapanSekolah] = useState('');
+            const [step, setStep] = useState(0);
+
+            const domains = ['pribadi', 'sosial', 'belajar', 'karir'];
+            const domainTitles = {
+                pribadi: { title: 'BIDANG PRIBADI', icon: Icons.User, color: 'text-rose-600' },
+                sosial: { title: 'BIDANG SOSIAL', icon: Icons.Users, color: 'text-emerald-600' },
+                belajar: { title: 'BIDANG BELAJAR', icon: Icons.BookOpen, color: 'text-blue-600' },
+                karir: { title: 'BIDANG KARIR', icon: Icons.Briefcase, color: 'text-amber-600' }
+            };
+
+            const handleAnswer = (qId, value) => setAnswers(prev => ({ ...prev, [qId]: value }));
+
+            const isStepComplete = () => {
+                if (step === 0 || step === 5 || step === 6) return true;
+                const currentDomain = domains[step - 1];
+                return questions[currentDomain].every(q => answers[q.id] !== undefined);
+            };
+
+            if (step === 0) {
+                return (
+                    <div className="max-w-3xl mx-auto animate-fade-in bg-white p-8 rounded-lg shadow-lg border-t-8 border-slate-900">
+                        <h2 className="text-2xl font-bold text-slate-900 uppercase mb-4">Petunjuk Pengisian</h2>
+                        <p className="mb-4 text-slate-700">Bacalah setiap pernyataan dengan teliti. Pilihlah jawaban yang paling sesuai dengan kondisi Anda saat ini dengan skala 1 sampai 4:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-8 text-sm text-center font-bold">
+                            <div className="p-3 bg-green-100 text-green-800 rounded">4. Sangat Setuju</div>
+                            <div className="p-3 bg-green-50 text-green-700 rounded">3. Setuju</div>
+                            <div className="p-3 bg-red-50 text-red-700 rounded">2. Tidak Setuju</div>
+                            <div className="p-3 bg-red-100 text-red-800 rounded">1. Sangat Tidak Setuju</div>
+                        </div>
+                        <div className="flex justify-between">
+                            <button onClick={onBack} className="text-slate-500 font-bold uppercase hover:text-slate-900">Kembali</button>
+                            <button onClick={() => setStep(1)} className="bg-slate-900 text-white px-6 py-3 rounded font-bold uppercase tracking-widest hover:bg-slate-800">Mulai</button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step >= 1 && step <= 4) {
+                const domainKey = domains[step - 1];
+                const info = domainTitles[domainKey];
+                const qs = questions[domainKey];
+                const Icon = info.icon;
+
+                return (
+                    <div className="max-w-4xl mx-auto animate-fade-in">
+                        <div className="mb-6 flex items-center justify-between bg-white p-4 rounded shadow-sm">
+                            <div className="flex items-center">
+                                <Icon className={`w-6 h-6 mr-3 ${info.color}`} />
+                                <h2 className={`text-xl font-bold uppercase ${info.color}`}>{info.title}</h2>
+                            </div>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Halaman {step} dari 5</span>
+                        </div>
+                        <div className="space-y-4">
+                            {qs.map((q) => (
+                                <div key={q.id} className="bg-white p-6 rounded shadow border-l-4 border-slate-200 hover:border-slate-400 transition">
+                                    <p className="text-slate-800 font-medium mb-4 text-lg">{q.text}</p>
+                                    <div className="grid grid-cols-4 gap-2 md:gap-4">
+                                        {[1, 2, 3, 4].map((val) => {
+                                            const isSelected = answers[q.id] === val;
+                                            let label = val === 1 ? 'STS' : val === 2 ? 'TS' : val === 3 ? 'S' : 'SS';
+                                            let bgClass = val === 1 ? (isSelected ? 'bg-green-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-200') :
+                                                val === 2 ? (isSelected ? 'bg-emerald-500 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-200') :
+                                                val === 3 ? (isSelected ? 'bg-orange-500 text-white' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-201') :
+                                                (isSelected ? 'bg-red-600 text-white' : 'bg-green-50 text-green-700 hover:bg-green-200');
+                                            return (
+                                                <button key={val} onClick={() => handleAnswer(q.id, val)} className={`py-3 rounded text-sm font-bold transition-all ${bgClass} ${isSelected ? 'shadow-lg scale-105' : ''}`}>
+                                                    <span className="block md:hidden">{val}</span>
+                                                    <span className="hidden md:block">{val} - {label}</span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-8 flex justify-between">
+                            <button onClick={() => setStep(step - 1)} className="px-6 py-3 bg-white text-slate-600 font-bold rounded shadow hover:bg-slate-50 uppercase"><Icons.ChevronLeft className="inline w-4 h-4 mr-1"/> Kembali</button>
+                            <button onClick={() => { if (isStepComplete()) setStep(step + 1); else alert("Mohon isi semua pernyataan sebelum lanjut."); }} className={`px-6 py-3 font-bold rounded shadow uppercase flex items-center ${isStepComplete() ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}`}>Lanjut <Icons.ChevronRight className="inline w-4 h-4 ml-1"/></button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 5) {
+                return (
+                    <div className="max-w-4xl mx-auto animate-fade-in bg-white p-8 rounded-lg shadow-lg border-t-8 border-slate-900">
+                        <div className="mb-6 flex items-center justify-between bg-slate-50 p-4 rounded shadow-sm">
+                            <h2 className="text-xl font-bold uppercase text-slate-900">Pertanyaan Terbuka</h2>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Halaman 5 dari 5</span>
+                        </div>
+                        <p className="mb-6 text-slate-700">Silakan isi pertanyaan di bawah ini agar kami dapat menyesuaikan layanan Bimbingan dan Konseling sesuai dengan kebutuhan Anda.</p>
+                        
+                        <div className="space-y-6">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Materi / Hal apa yang ingin Anda dapatkan dari layanan Bimbingan dan Konseling?</label>
+                                <textarea 
+                                    className="w-full p-4 border border-slate-300 rounded focus:border-amber-500 outline-none resize-none bg-slate-50 focus:bg-white transition" 
+                                    rows="3" 
+                                    value={materiDiharapkan} 
+                                    onChange={(e) => setMateriDiharapkan(e.target.value)}
+                                    placeholder="Contoh: Saya ingin mendapatkan materi dan tips sukses lulus seleksi Akmil/Akpol..."
+                                ></textarea>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-2">Apa harapan Anda selama bersekolah di SMAN Taruna Nala Jawa Timur ini?</label>
+                                <textarea 
+                                    className="w-full p-4 border border-slate-300 rounded focus:border-amber-500 outline-none resize-none bg-slate-50 focus:bg-white transition" 
+                                    rows="3" 
+                                    value={harapanSekolah} 
+                                    onChange={(e) => setHarapanSekolah(e.target.value)}
+                                    placeholder="Contoh: Saya berharap bisa lebih mandiri, disiplin, dan memiliki relasi yang baik dengan teman satu angkatan..."
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex justify-between">
+                            <button onClick={() => setStep(4)} className="px-6 py-3 bg-white text-slate-600 font-bold rounded shadow hover:bg-slate-50 uppercase"><Icons.ChevronLeft className="inline w-4 h-4 mr-1"/> Kembali</button>
+                            <button onClick={() => setStep(6)} className="px-6 py-3 bg-slate-900 text-white font-bold rounded shadow hover:bg-slate-800 uppercase flex items-center">Lanjut <Icons.ChevronRight className="inline w-4 h-4 ml-1"/></button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 6) {
+                const scoreTotal = Object.values(answers).reduce((a, b) => a + b, 0);
+                return (
+                    <div className="max-w-xl mx-auto animate-fade-in bg-white p-10 rounded-lg shadow-xl text-center">
+                        <Icons.CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
+                        <h2 className="text-2xl font-bold text-slate-900 uppercase mb-2">Selesai!</h2>
+                        <p className="text-slate-600 mb-8">Anda telah mengisi seluruh pernyataan dan pertanyaan tambahan. Pastikan data Anda sudah benar.</p>
+                        <button onClick={() => onSubmit({ type: 'assessment', answers, scoreTotal, story: '', materiDiharapkan, harapanSekolah })} className="w-full bg-green-600 text-white py-4 rounded font-bold uppercase tracking-widest hover:bg-green-700 transition">Kirim Data Asesmen</button>
+                        <button onClick={() => setStep(5)} className="mt-4 text-slate-400 text-sm hover:text-slate-600 uppercase font-bold">Periksa Kembali</button>
+                    </div>
+                );
+            }
+        }
+
+        // --- CURHAT ---
+        function CurhatBox({ user, onBack, onSubmit }) {
+            const [text, setText] = useState('');
+            return (
+                <div className="max-w-2xl mx-auto animate-fade-in">
+                    <div className="bg-white p-8 rounded-xl shadow-lg border-t-8 border-indigo-600">
+                        <div className="flex items-center mb-6 pb-4 border-b border-indigo-100">
+                            <Icons.MessageSquare className="w-8 h-8 text-indigo-600 mr-3" />
+                            <h2 className="text-2xl font-bold text-slate-900 uppercase">Ruang Konseling</h2>
+                        </div>
+                        <div className="bg-indigo-50 p-4 rounded text-sm text-indigo-800 mb-6 italic">"Ceritakan apa yang sedang kamu rasakan. Entah itu masalah keluarga, teman, akademik, atau hal pribadi lainnya. Rahasia terjamin."</div>
+                        <textarea className="w-full h-64 p-4 border border-slate-300 rounded focus:border-indigo-500 outline-none resize-none text-slate-700 bg-slate-50 focus:bg-white transition" placeholder="Ketik ceritamu di sini..." value={text} onChange={(e) => setText(e.target.value)}></textarea>
+                        <div className="flex justify-between mt-6">
+                            <button onClick={onBack} className="text-slate-500 font-bold uppercase hover:text-slate-800">Batal</button>
+                            <button onClick={() => { if(text.trim().length < 5) return alert("Pesan terlalu pendek."); onSubmit({ type: 'curhat', answers: {}, scoreTotal: 0, story: text, materiDiharapkan: '', harapanSekolah: '' }); }} className="bg-indigo-600 text-white px-8 py-3 rounded font-bold uppercase tracking-widest hover:bg-indigo-700">Kirim Cerita</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- DASHBOARD GURU ---
+        function TeacherDashboard({ submissions }) {
+            const [searchTerm, setSearchTerm] = useState('');
+            const [selectedSub, setSelectedSub] = useState(null);
+
+            const stats = useMemo(() => {
+                const scores = { Pribadi: 0, Sosial: 0, Belajar: 0, Karir: 0 };
+                let assessmentCount = 0;
+                
+                const itemCounts = {}; 
+
+                submissions.forEach(sub => {
+                    if (sub.type === 'assessment') {
+                        assessmentCount++;
+                        Object.entries(sub.answers).forEach(([key, val]) => {
+                            if (key.startsWith('P')) scores.Pribadi += val;
+                            if (key.startsWith('S')) scores.Sosial += val;
+                            if (key.startsWith('B')) scores.Belajar += val;
+                            if (key.startsWith('K')) scores.Karir += val;
+
+                            if (val >= 3) {
+                                itemCounts[key] = (itemCounts[key] || 0) + 1;
+                            }
+                        });
+                    }
+                });
+
+                const topItems = Object.entries(itemCounts)
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5)
+                    .map(([key, count]) => {
+                        const percentage = assessmentCount > 0 ? Math.round((count / assessmentCount) * 100) : 0;
+                        const qText = Object.values(questions).flat().find(q => q.id === key)?.text || key;
+                        return { id: key, text: qText, count, percentage };
+                    });
+
+                return { scores, assessmentCount, topItems };
+            }, [submissions]);
+
+            const chartGradient = useMemo(() => {
+                const total = Object.values(stats.scores).reduce((a, b) => a + b, 0) || 1;
+                const p = (stats.scores.Pribadi / total) * 100;
+                const s = (stats.scores.Sosial / total) * 100;
+                const b = (stats.scores.Belajar / total) * 100;
+                return `conic-gradient(#f43f5e 0% ${p}%, #10b981 ${p}% ${p + s}%, #3b82f6 ${p + s}% ${p + s + b}%, #f59e0b ${p + s + b}% 100%)`;
+            }, [stats]);
+
+            const filtered = submissions.filter(sub => sub.name.toLowerCase().includes(searchTerm.toLowerCase()) || sub.classCode.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            const handleDownloadCSV = () => {
+                const headers = [
+                    "Waktu", "Nama", "Kelas", "Jenis Laporan", "Skor Total", "Materi Diharapkan", "Harapan Sekolah", "Pesan Curhat",
+                    "P1", "P2", "P3", "P4", "P5",
+                    "S1", "S2", "S3", "S4", "S5",
+                    "B1", "B2", "B3", "B4", "B5",
+                    "K1", "K2", "K3", "K4", "K5"
+                ];
+
+                const rows = submissions.map(sub => {
+                    const date = new Date(sub.timestamp).toLocaleString('id-ID');
+                    const escapeCSV = (str) => {
+                        if (!str) return '""';
+                        return `"${str.toString().replace(/"/g, '""')}"`;
+                    };
+                    
+                    const rowData = [
+                        escapeCSV(date), escapeCSV(sub.name), escapeCSV(sub.classCode), escapeCSV(sub.type),
+                        sub.scoreTotal || 0, escapeCSV(sub.materiDiharapkan), escapeCSV(sub.harapanSekolah), escapeCSV(sub.story),
+                        sub.answers?.P1 || '', sub.answers?.P2 || '', sub.answers?.P3 || '', sub.answers?.P4 || '', sub.answers?.P5 || '',
+                        sub.answers?.S1 || '', sub.answers?.S2 || '', sub.answers?.S3 || '', sub.answers?.S4 || '', sub.answers?.S5 || '',
+                        sub.answers?.B1 || '', sub.answers?.B2 || '', sub.answers?.B3 || '', sub.answers?.B4 || '', sub.answers?.B5 || '',
+                        sub.answers?.K1 || '', sub.answers?.K2 || '', sub.answers?.K3 || '', sub.answers?.K4 || '', sub.answers?.K5 || ''
+                    ];
+                    return rowData.join(",");
+                });
+
+                const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.join("\n");
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", "Rekap_Asesmen_BK_Taruna_Nala.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            return (
+                <div className="space-y-8 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white p-6 rounded shadow border-l-4 border-slate-900 flex flex-col justify-center">
+                            <h3 className="text-lg font-bold uppercase text-slate-800 mb-2">Total Data Masuk</h3>
+                            <p className="text-4xl font-bold text-slate-900">{submissions.length} <span className="text-sm font-normal text-slate-500">Laporan</span></p>
+                            <div className="mt-4 flex gap-4 text-xs font-bold text-slate-500 uppercase">
+                                <span className="flex items-center"><Icons.FileText className="w-4 h-4 mr-1"/> Asesmen: {stats.assessmentCount}</span>
+                                <span className="flex items-center"><Icons.MessageSquare className="w-4 h-4 mr-1"/> Curhat: {submissions.length - stats.assessmentCount}</span>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded shadow border-l-4 border-amber-500 flex items-center justify-between">
+                            <div>
+                                <h3 className="text-lg font-bold uppercase text-slate-800 mb-4">Peta Intensitas Bidang</h3>
+                                <ul className="text-sm space-y-1">
+                                    <li className="flex items-center"><span className="w-3 h-3 bg-rose-500 rounded-full mr-2"></span> Pribadi ({stats.scores.Pribadi})</li>
+                                    <li className="flex items-center"><span className="w-3 h-3 bg-emerald-500 rounded-full mr-2"></span> Sosial ({stats.scores.Sosial})</li>
+                                    <li className="flex items-center"><span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span> Belajar ({stats.scores.Belajar})</li>
+                                    <li className="flex items-center"><span className="w-3 h-3 bg-amber-500 rounded-full mr-2"></span> Karir ({stats.scores.Karir})</li>
+                                </ul>
+                            </div>
+                            <div className="pie-chart" style={{ background: chartGradient }}>
+                                <div className="pie-center">PERBANDINGAN<br/>SKOR</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded shadow border-l-4 border-indigo-500">
+                        <div className="flex items-center mb-6 border-b border-slate-100 pb-3">
+                            <Icons.TrendingUp className="w-6 h-6 text-indigo-500 mr-2" />
+                            <h3 className="text-lg font-bold uppercase text-slate-800">Top 5 Masalah Utama (Angkatan)</h3>
+                        </div>
+                        
+                        {stats.assessmentCount === 0 ? (
+                            <p className="text-slate-500 italic text-sm py-4 text-center">Belum ada data asesmen yang masuk.</p>
+                        ) : stats.topItems.length === 0 ? (
+                            <p className="text-slate-500 italic text-sm py-4 text-center">Belum ada taruna yang memilih masalah dengan intensitas tinggi (Skor 3 / 4).</p>
+                        ) : (
+                            <div className="space-y-5">
+                                {stats.topItems.map((item, index) => (
+                                    <div key={item.id} className="relative">
+                                        <div className="flex justify-between items-end text-sm font-bold text-slate-700 mb-1">
+                                            <span className="truncate pr-4 flex-1">
+                                                <span className="text-indigo-600 mr-2 bg-indigo-50 px-2 py-0.5 rounded text-xs">#{index + 1} ({item.id})</span> 
+                                                {item.text}
+                                            </span>
+                                            <span className="text-indigo-700 bg-indigo-50 px-2 py-1 rounded text-xs shrink-0">
+                                                {item.percentage}% ({item.count} Taruna)
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                                            <div className="bg-gradient-to-r from-indigo-400 to-indigo-600 h-3 rounded-full transition-all duration-1000 ease-out" style={{ width: `${item.percentage}%` }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-xs text-slate-400 mt-6 italic">*Dihitung berdasarkan jumlah taruna yang menjawab "Setuju (3)" atau "Sangat Setuju (4)" pada butir soal asesmen.</p>
+                    </div>
+
+                    <div className="bg-white rounded shadow border border-slate-200 overflow-hidden">
+                        <div className="p-4 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 gap-4">
+                            <h3 className="font-bold text-slate-900 uppercase">Daftar Laporan Individu</h3>
+                            <div className="flex items-center space-x-3 w-full sm:w-auto">
+                                <div className="relative flex-1">
+                                    <input type="text" placeholder="Cari..." className="w-full pl-8 pr-4 py-2 border rounded text-sm outline-none focus:border-amber-400" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                                    <Icons.Search className="w-4 h-4 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                                </div>
+                                <button onClick={handleDownloadCSV} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded text-sm font-bold uppercase tracking-wider transition flex items-center shrink-0">
+                                    <Icons.Download className="w-4 h-4 mr-2" /> Unduh CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-900 text-slate-200 font-bold uppercase text-xs">
+                                    <tr>
+                                        <th className="p-4 whitespace-nowrap">Waktu</th>
+                                        <th className="p-4">Nama</th>
+                                        <th className="p-4">Kelas</th>
+                                        <th className="p-4">Jenis</th>
+                                        <th className="p-4 text-center">Skor/Status</th>
+                                        <th className="p-4">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {filtered.length === 0 ? (
+                                        <tr><td colSpan="6" className="p-8 text-center text-slate-400 italic">Belum ada data tersedia.</td></tr>
+                                    ) : (
+                                        filtered.map(sub => (
+                                            <tr key={sub.id} className="hover:bg-slate-50">
+                                                <td className="p-4 text-slate-500 font-mono text-xs whitespace-nowrap">{new Date(sub.timestamp).toLocaleDateString()}</td>
+                                                <td className="p-4 font-bold text-slate-800">{sub.name}</td>
+                                                <td className="p-4">{sub.classCode}</td>
+                                                <td className="p-4">
+                                                    {sub.type === 'assessment' ? 
+                                                        <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold uppercase">Asesmen</span> : 
+                                                        <span className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs font-bold uppercase">Curhat</span>
+                                                    }
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {sub.type === 'assessment' ? (
+                                                        <span className={`font-bold ${sub.scoreTotal > 50 ? 'text-red-600' : 'text-green-600'}`}>{sub.scoreTotal} Poin</span>
+                                                    ) : '-'}
+                                                </td>
+                                                <td className="p-4">
+                                                    <button onClick={() => setSelectedSub(sub)} className="text-xs font-bold uppercase bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700 whitespace-nowrap">Detail</button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {selectedSub && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                            <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                                <div className="bg-slate-900 text-white p-4 flex justify-between items-center shrink-0">
+                                    <h3 className="font-bold uppercase tracking-widest">Detail Laporan</h3>
+                                    <button onClick={() => setSelectedSub(null)}><Icons.X className="w-6 h-6 hover:text-red-400 transition" /></button>
+                                </div>
+                                <div className="p-6 overflow-y-auto">
+                                    <div className="mb-6 pb-4 border-b">
+                                        <h2 className="text-xl font-bold">{selectedSub.name}</h2>
+                                        <p className="text-slate-500">{selectedSub.classCode} - {new Date(selectedSub.timestamp).toLocaleString('id-ID')}</p>
+                                    </div>
+                                    {selectedSub.type === 'curhat' ? (
+                                        <div className="bg-indigo-50 p-6 rounded border border-indigo-100 italic text-indigo-900 leading-relaxed whitespace-pre-wrap">"{selectedSub.story}"</div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center bg-slate-100 p-3 rounded">
+                                                <span className="font-bold uppercase text-xs text-slate-500">Total Skor Masalah</span>
+                                                <span className="text-2xl font-bold text-slate-900">{selectedSub.scoreTotal} <span className="text-sm font-normal text-slate-500">/ 80</span></span>
+                                            </div>
+                                            
+                                            {(selectedSub.materiDiharapkan || selectedSub.harapanSekolah) && (
+                                                <div className="mt-6 border-t border-slate-200 pt-4">
+                                                    <h4 className="font-bold text-sm uppercase text-slate-400 mb-3">Tanggapan Terbuka</h4>
+                                                    <div className="space-y-3">
+                                                        {selectedSub.materiDiharapkan && (
+                                                            <div className="bg-amber-50 p-4 rounded border border-amber-100">
+                                                                <span className="block text-xs font-bold text-amber-700 uppercase mb-2">Materi/Hal yang Ingin Didapat:</span>
+                                                                <p className="text-sm text-slate-800 italic leading-relaxed whitespace-pre-wrap">"{selectedSub.materiDiharapkan}"</p>
+                                                            </div>
+                                                        )}
+                                                        {selectedSub.harapanSekolah && (
+                                                            <div className="bg-blue-50 p-4 rounded border border-blue-100">
+                                                                <span className="block text-xs font-bold text-blue-700 uppercase mb-2">Harapan di SMAN Taruna Nala:</span>
+                                                                <p className="text-sm text-slate-800 italic leading-relaxed whitespace-pre-wrap">"{selectedSub.harapanSekolah}"</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 gap-2 mt-6">
+                                                <h4 className="font-bold text-sm uppercase text-slate-400 mt-2 border-b pb-2">Rincian Jawaban (Skor 4 = Masalah Berat)</h4>
+                                                {Object.entries(selectedSub.answers).map(([key, val]) => (
+                                                    val >= 3 && (
+                                                        <div key={key} className="flex justify-between items-center p-3 border-b border-slate-100 hover:bg-slate-50 transition">
+                                                            <span className="text-sm font-medium text-slate-700 pr-4">
+                                                                <span className={`font-bold mr-3 ${key.startsWith('P') ? 'text-rose-500': key.startsWith('S') ? 'text-emerald-500': key.startsWith('B')?'text-blue-500':'text-amber-500'}`}>{key}</span> 
+                                                                {Object.values(questions).flat().find(q => q.id === key)?.text}
+                                                            </span>
+                                                            <span className={`font-bold text-lg shrink-0 ${val===4 ? 'text-red-600 bg-red-50 px-3 py-1 rounded' : 'text-orange-600'}`}>{val}</span>
+                                                        </div>
+                                                    )
+                                                ))}
+                                                {Object.values(selectedSub.answers).every(v => v < 3) && <p className="text-center text-green-600 italic py-4 bg-green-50 rounded">Tidak ada item dengan skor tinggi (3 atau 4).</p>}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
